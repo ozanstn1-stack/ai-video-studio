@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_create"
+        android:shortcutId="create"
+        android:shortcutLongLabel="@string/shortcut_create_long"
+        android:shortcutShortLabel="@string/shortcut_create_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.aivideostudio.MainActivity"
+            android:targetPackage="com.aivideostudio">
+            <extra
+                android:name="destination"
+                android:value="create" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_library"
+        android:shortcutId="library"
+        android:shortcutLongLabel="@string/shortcut_library_long"
+        android:shortcutShortLabel="@string/shortcut_library_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.aivideostudio.MainActivity"
+            android:targetPackage="com.aivideostudio">
+            <extra
+                android:name="destination"
+                android:value="library" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+</shortcuts>

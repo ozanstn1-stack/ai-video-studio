@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+.cxx/
+.externalNativeBuild/
+
+# Local configuration and secrets - never commit these
+local.properties
+*.jks
+*.keystore
+!debug.keystore
+secrets.properties
+
+# Outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+/app/release/
+
+# OS / tooling
+.DS_Store
+Thumbs.db
+*.log
+.kotlin/
+captures/

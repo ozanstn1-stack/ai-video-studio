@@ -16,6 +16,7 @@ local.properties
 *.keystore
 !debug.keystore
 secrets.properties
+keystore/
 
 # Outputs
 *.apk

@@ -36,6 +36,21 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    val keystorePropsFile = rootProject.file("keystore/keystore.properties")
+    if (keystorePropsFile.exists()) {
+        val keystoreProps = Properties().apply {
+            load(keystorePropsFile.inputStream())
+        }
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -48,6 +63,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (keystorePropsFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

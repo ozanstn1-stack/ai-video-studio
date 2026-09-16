@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,10 +58,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class ProjectFilter(val label: String) {
-    ALL("All"),
-    IN_PROGRESS("In progress"),
-    READY("Ready"),
+enum class ProjectFilter(val labelRes: Int) {
+    ALL(com.aivideostudio.R.string.filter_all),
+    IN_PROGRESS(com.aivideostudio.R.string.filter_in_progress),
+    READY(com.aivideostudio.R.string.filter_ready),
 }
 
 data class ProjectsUiState(
@@ -82,6 +83,7 @@ data class ProjectsUiState(
 @HiltViewModel
 class ProjectsViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
+    private val scheduler: com.aivideostudio.work.PipelineScheduler,
 ) : ViewModel() {
 
     private val filter = MutableStateFlow(ProjectFilter.ALL)
@@ -113,7 +115,12 @@ class ProjectsViewModel @Inject constructor(
 
     fun delete(projectId: Long) {
         pendingDeleteId.value = null
-        viewModelScope.launch { projectRepository.deleteProject(projectId) }
+        viewModelScope.launch {
+            // Kill any live analysis first, otherwise the worker would keep
+            // running against rows that no longer exist.
+            scheduler.cancel(projectId)
+            projectRepository.deleteProject(projectId)
+        }
     }
 }
 
@@ -137,7 +144,7 @@ fun ProjectsScreen(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             SectionHeader(
-                title = "Projects",
+                title = stringResource(com.aivideostudio.R.string.projects_title),
                 subtitle = "${state.count} project" + if (state.count == 1) "" else "s",
             )
         }
@@ -146,7 +153,7 @@ fun ProjectsScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ProjectFilter.entries.forEach { option ->
                     OptionChip(
-                        label = option.label,
+                        label = stringResource(option.labelRes),
                         selected = state.filter == option,
                         onClick = { viewModel.setFilter(option) },
                     )
@@ -158,12 +165,12 @@ fun ProjectsScreen(
             state.projects.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
                 StudioCard(modifier = Modifier.fillMaxWidth()) {
                     EmptyState(
-                        title = "No projects yet",
-                        message = "Import footage and let the AI find your best moments.",
+                        title = stringResource(com.aivideostudio.R.string.no_projects_yet),
+                        message = stringResource(com.aivideostudio.R.string.no_projects_hint),
                         icon = Icons.Outlined.VideoSettings,
                         action = {
                             Text(
-                                text = "Create your first video",
+                                text = stringResource(com.aivideostudio.R.string.create_first_video),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = StudioColors.PrimaryBright,
                                 fontWeight = FontWeight.SemiBold,
@@ -200,20 +207,19 @@ fun ProjectsScreen(
     if (pendingId != null) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelDelete() },
-            title = { Text("Delete project?") },
+            title = { Text(stringResource(com.aivideostudio.R.string.delete_project_title)) },
             text = {
-                Text(
-                    "This removes the project and its generated clips. " +
-                        "Original videos are never deleted.",
-                )
+                Text(stringResource(com.aivideostudio.R.string.delete_project_message))
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.delete(pendingId) }) {
-                    Text("Delete", color = StudioColors.Error)
+                    Text(stringResource(com.aivideostudio.R.string.delete), color = StudioColors.Error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.cancelDelete() }) { Text("Cancel") }
+                TextButton(onClick = { viewModel.cancelDelete() }) {
+                    Text(stringResource(com.aivideostudio.R.string.cancel))
+                }
             },
             containerColor = StudioColors.SurfaceElevated,
             titleContentColor = StudioColors.TextPrimary,
@@ -244,7 +250,7 @@ private fun ProjectCell(
             IconButton(onClick = onDeleteRequest, modifier = Modifier.size(28.dp)) {
                 Icon(
                     imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Delete project",
+                    contentDescription = stringResource(com.aivideostudio.R.string.delete_project_action),
                     tint = StudioColors.TextTertiary,
                     modifier = Modifier.size(18.dp),
                 )
@@ -259,7 +265,10 @@ private fun ProjectCell(
                     contentColor = StudioColors.OnPrimary,
                 ),
             ) {
-                Text("Continue analysis", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    stringResource(com.aivideostudio.R.string.continue_analysis),
+                    style = MaterialTheme.typography.labelMedium,
+                )
             }
         }
     }

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AI Video Studio</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Ana sayfa</string>
+    <string name="nav_projects">Projeler</string>
+    <string name="nav_create">Oluştur</string>
+    <string name="nav_library">Kitaplık</string>
+    <string name="nav_settings">Ayarlar</string>
+
+    <string name="shortcut_create_short">Oluştur</string>
+    <string name="shortcut_create_long">AI videosu oluştur</string>
+    <string name="shortcut_library_short">Kitaplık</string>
+    <string name="shortcut_library_long">Kitaplığı aç</string>
+
+    <string name="channel_processing_name">AI işlemi</string>
+    <string name="channel_processing_description">AI videolarınızı analiz ederken ilerlemeyi gösterir</string>
+    <string name="channel_export_name">Dışa aktarma</string>
+    <string name="channel_export_description">Videolar işlenirken ilerlemeyi gösterir</string>
+
+    <!-- Common -->
+    <string name="back">Geri</string>
+    <string name="done">Tamam</string>
+    <string name="retry">Tekrar dene</string>
+    <string name="cancel">İptal</string>
+    <string name="delete">Sil</string>
+    <string name="something_went_wrong">Bir şeyler ters gitti</string>
+    <string name="originals_untouched">Orijinal videolarınıza dokunulmaz.</string>
+
+    <!-- Analysis screen -->
+    <string name="analysis_title">Analiz ediliyor</string>
+    <string name="analysis_progress_title">Videolarınız analiz ediliyor…</string>
+    <string name="analysis_complete">Analiz tamamlandı</string>
+    <string name="analysis_cancelled">Analiz iptal edildi.</string>
+    <string name="cancel_analysis">Analizi iptal et</string>
+    <string name="continue_without_ai">AI olmadan devam et</string>
+    <string name="analysis_unread_title">Bazı videolar okunamadı</string>
+    <string name="analysis_unread_body">Analiz okunabilen videolarla devam ediyor. Diğerlerini cihazda varsa yeniden ekleyebilirsiniz.</string>
+
+    <!-- Pipeline stages -->
+    <string name="stage_import">Videolar içe aktarılıyor</string>
+    <string name="stage_probe">Video dosyaları okunuyor</string>
+    <string name="stage_thumbnails">Kapaklar oluşturuluyor</string>
+    <string name="stage_scenes">Sahneler algılanıyor</string>
+    <string name="stage_audio">Ses analiz ediliyor</string>
+    <string name="stage_transcription">Konuşma yazıya geçiriliyor</string>
+    <string name="stage_semantic">İçerik anlaşılıyor</string>
+    <string name="stage_highlights">Öne çıkanlar bulunuyor</string>
+    <string name="stage_shorts">Short videoları hazırlanıyor</string>
+    <string name="stage_render">Klipler hazırlanıyor</string>
+    <string name="stage_done">Bitti</string>
+
+    <!-- Notifications -->
+    <string name="notif_analysis_title">Videolarınız analiz ediliyor</string>
+    <string name="notif_starting">Başlıyor…</string>
+
+    <!-- Create screen -->
+    <string name="create_title">Oluştur</string>
+    <string name="create_subtitle">Çekimlerinizi harika Short videolarına dönüştürün</string>
+    <string name="add_videos">Video ekle</string>
+    <string name="add_videos_hint">Galerinizden klip seçin veya tüm DJI klasörünü içe aktarın.</string>
+    <string name="choose_videos">Video seç</string>
+    <string name="choose_folder">DJI klasörü</string>
+    <string name="selected_videos">Seçilen videolar</string>
+    <string name="clear">Temizle</string>
+    <string name="remove">Kaldır</string>
+    <string name="what_to_create">Ne oluşturmak istiyorsunuz?</string>
+    <string name="one_short">%1$d Short</string>
+    <string name="many_shorts">%1$d Short</string>
+    <string name="duration_label">Süre</string>
+    <string name="format_label">Biçim</string>
+    <string name="style_label">Stil</string>
+    <string name="advanced">Gelişmiş</string>
+    <string name="video_quality">Video kalitesi</string>
+    <string name="frame_rate">Kare hızı</string>
+    <string name="analyze_and_create">Analiz et ve oluştur</string>
+    <string name="preparing">Hazırlanıyor…</string>
+
+    <!-- Projects screen -->
+    <string name="projects_title">Projeler</string>
+    <string name="filter_all">Tümü</string>
+    <string name="filter_in_progress">Devam eden</string>
+    <string name="filter_ready">Hazır</string>
+    <string name="no_projects_yet">Henüz proje yok</string>
+    <string name="no_projects_hint">Çekimlerinizi içe aktarın, AI en iyi anlarınızı bulsun.</string>
+    <string name="create_first_video">İlk videonu oluştur</string>
+    <string name="continue_analysis">Analize devam et</string>
+    <string name="delete_project_title">Proje silinsin mi?</string>
+    <string name="delete_project_message">Bu işlem projeyi ve oluşturulan klipleri siler. Orijinal videolar asla silinmez.</string>
+    <string name="delete_project_action">Projeyi sil</string>
+</resources>

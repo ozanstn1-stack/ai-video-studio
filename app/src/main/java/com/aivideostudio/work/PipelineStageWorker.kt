@@ -188,7 +188,30 @@ class PipelineStageWorker @AssistedInject constructor(
             usedCloud = job.usedCloud || usedCloud,
         )
         setProgress(workDataOf(KEY_PROGRESS to overall, KEY_STAGE to stage.name))
-        updateNotification((overall * 100).toInt(), stage.displayName)
+        updateNotification((overall * 100).toInt(), stageName(stage))
+    }
+
+    /** Localised stage label for the notification card. */
+    private fun stageName(stage: PipelineStage): String = when (stage) {
+        PipelineStage.IMPORT -> applicationContext.getString(com.aivideostudio.R.string.stage_import)
+        PipelineStage.PROBE_VIDEO, PipelineStage.EXTRACT_METADATA ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_probe)
+        PipelineStage.GENERATE_THUMBNAILS ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_thumbnails)
+        PipelineStage.SCENE_DETECTION ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_scenes)
+        PipelineStage.AUDIO_ANALYSIS ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_audio)
+        PipelineStage.TRANSCRIPTION ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_transcription)
+        PipelineStage.SEMANTIC_ANALYSIS ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_semantic)
+        PipelineStage.HIGHLIGHT_DETECTION ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_highlights)
+        PipelineStage.SHORT_GENERATION ->
+            applicationContext.getString(com.aivideostudio.R.string.stage_shorts)
+        PipelineStage.RENDER -> applicationContext.getString(com.aivideostudio.R.string.stage_render)
+        else -> applicationContext.getString(com.aivideostudio.R.string.stage_done)
     }
 
     /**
@@ -202,7 +225,10 @@ class PipelineStageWorker @AssistedInject constructor(
             setForeground(
                 ForegroundInfo(
                     NOTIFICATION_ID,
-                    analysisNotification("Starting…", 0),
+                    analysisNotification(
+                        applicationContext.getString(com.aivideostudio.R.string.notif_starting),
+                        0,
+                    ),
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                     } else {
@@ -217,7 +243,7 @@ class PipelineStageWorker @AssistedInject constructor(
     private fun analysisNotification(stageLabel: String, percent: Int) = NotificationCompat
         .Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_PROCESSING)
         .setSmallIcon(android.R.drawable.stat_notify_sync)
-        .setContentTitle("Analyzing your footage")
+        .setContentTitle(applicationContext.getString(com.aivideostudio.R.string.notif_analysis_title))
         .setContentText("$stageLabel · $percent%")
         .setProgress(100, percent, percent == 0)
         .setOngoing(true)

@@ -18,4 +18,75 @@
     <string name="channel_processing_description">Shows progress while AI analyzes your footage</string>
     <string name="channel_export_name">Export</string>
     <string name="channel_export_description">Shows progress while videos are rendered</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="done">Done</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="something_went_wrong">Something went wrong</string>
+    <string name="originals_untouched">Your original videos are untouched.</string>
+
+    <!-- Analysis screen -->
+    <string name="analysis_title">Analyzing</string>
+    <string name="analysis_progress_title">Analyzing your footage…</string>
+    <string name="analysis_complete">Analysis complete</string>
+    <string name="analysis_cancelled">Analysis was cancelled.</string>
+    <string name="cancel_analysis">Cancel analysis</string>
+    <string name="continue_without_ai">Continue without AI</string>
+    <string name="analysis_unread_title">Some videos could not be read</string>
+    <string name="analysis_unread_body">Analysis continues with the readable ones. Re-add the others if they are on the device.</string>
+
+    <!-- Pipeline stages -->
+    <string name="stage_import">Importing videos</string>
+    <string name="stage_probe">Reading video files</string>
+    <string name="stage_thumbnails">Generating thumbnails</string>
+    <string name="stage_scenes">Detecting scenes</string>
+    <string name="stage_audio">Analyzing audio</string>
+    <string name="stage_transcription">Transcribing speech</string>
+    <string name="stage_semantic">Understanding content</string>
+    <string name="stage_highlights">Finding highlights</string>
+    <string name="stage_shorts">Creating your Shorts</string>
+    <string name="stage_render">Preparing clips</string>
+    <string name="stage_done">Finished</string>
+
+    <!-- Notifications -->
+    <string name="notif_analysis_title">Analyzing your footage</string>
+    <string name="notif_starting">Starting…</string>
+
+    <!-- Create screen -->
+    <string name="create_title">Create</string>
+    <string name="create_subtitle">Turn your footage into great Shorts</string>
+    <string name="add_videos">Add videos</string>
+    <string name="add_videos_hint">Select clips from your camera roll, or import a whole DJI folder.</string>
+    <string name="choose_videos">Choose videos</string>
+    <string name="choose_folder">DJI folder</string>
+    <string name="selected_videos">Selected videos</string>
+    <string name="clear">Clear</string>
+    <string name="remove">Remove</string>
+    <string name="what_to_create">What do you want to create?</string>
+    <string name="one_short">%1$d Short</string>
+    <string name="many_shorts">%1$d Shorts</string>
+    <string name="duration_label">Duration</string>
+    <string name="format_label">Format</string>
+    <string name="style_label">Style</string>
+    <string name="advanced">Advanced</string>
+    <string name="video_quality">Video quality</string>
+    <string name="frame_rate">Frame rate</string>
+    <string name="analyze_and_create">Analyze &amp; Create</string>
+    <string name="preparing">Preparing…</string>
+
+    <!-- Projects screen -->
+    <string name="projects_title">Projects</string>
+    <string name="filter_all">All</string>
+    <string name="filter_in_progress">In progress</string>
+    <string name="filter_ready">Ready</string>
+    <string name="no_projects_yet">No projects yet</string>
+    <string name="no_projects_hint">Import footage and let the AI find your best moments.</string>
+    <string name="create_first_video">Create your first video</string>
+    <string name="continue_analysis">Continue analysis</string>
+    <string name="delete_project_title">Delete project?</string>
+    <string name="delete_project_message">This removes the project and its generated clips. Original videos are never deleted.</string>
+    <string name="delete_project_action">Delete project</string>
 </resources>

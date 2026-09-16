@@ -1,6 +1,8 @@
 package com.aivideostudio.ui.screens.analysis
 
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import com.aivideostudio.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,13 +52,17 @@ import com.aivideostudio.domain.model.JobStatus
 import com.aivideostudio.domain.model.PipelineStage
 import com.aivideostudio.domain.model.Project
 import com.aivideostudio.domain.model.ProjectStatus
+import com.aivideostudio.domain.model.ProbeState
+import com.aivideostudio.domain.model.VideoAsset
 import com.aivideostudio.domain.repository.JobRepository
+import com.aivideostudio.domain.repository.MediaRepository
 import com.aivideostudio.domain.repository.ProjectRepository
 import com.aivideostudio.processing.ProjectPipeline
 import com.aivideostudio.ui.components.StudioBadge
 import com.aivideostudio.ui.components.StudioCard
 import com.aivideostudio.ui.theme.StudioColors
 import com.aivideostudio.work.PipelineScheduler
+import com.aivideostudio.work.PipelineStageWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +78,7 @@ import javax.inject.Inject
 data class AnalysisUiState(
     val project: Project? = null,
     val job: AiJob? = null,
+    val assets: List<VideoAsset> = emptyList(),
     val isRunning: Boolean = false,
     val isFinished: Boolean = false,
     val errorMessage: String? = null,
@@ -79,12 +87,19 @@ data class AnalysisUiState(
     val progress: Float get() = job?.progress?.coerceIn(0f, 1f) ?: 0f
     val currentStage: PipelineStage get() = job?.stage ?: PipelineStage.IMPORT
     val finishedStages: List<PipelineStage> get() = job?.finishedStages.orEmpty()
+
+    /** Clips that the pipeline had to skip because their media could not be read. */
+    val failedAssets: List<VideoAsset>
+        get() = assets.filter { it.probeState == ProbeState.FAILED }
 }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class AnalysisViewModel @Inject constructor(    private val projectRepository: ProjectRepository,
+class AnalysisViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
+    private val projectRepository: ProjectRepository,
     private val jobRepository: JobRepository,
+    private val mediaRepository: MediaRepository,
     private val pipeline: ProjectPipeline,
     private val scheduler: PipelineScheduler,
 ) : ViewModel() {
@@ -95,15 +110,23 @@ class AnalysisViewModel @Inject constructor(    private val projectRepository: P
     val state: StateFlow<AnalysisUiState> = combine(
         activeProjectId.flatMapLatest { id -> projectRepository.observeProject(id) },
         activeProjectId.flatMapLatest { id -> jobRepository.observeLatestJob(id) },
+        activeProjectId.flatMapLatest { id -> mediaRepository.observeAssets(id) },
         extraState,
-    ) { project, job, extra ->
+    ) { project, job, assets, extra ->
         extra.copy(
             project = project,
             job = job,
+            assets = assets,
             isRunning = job?.status == JobStatus.RUNNING || job?.status == JobStatus.QUEUED,
             isFinished = project?.status == ProjectStatus.GENERATED ||
                 project?.status == ProjectStatus.EXPORTED,
-            errorMessage = job?.displayError ?: project?.lastError,
+            errorMessage = job?.displayError
+                ?: (if (job?.status == JobStatus.CANCELLED) {
+                    context.getString(R.string.analysis_cancelled)
+                } else {
+                    null
+                })
+                ?: project?.lastError,
             canContinueWithoutAi = job?.stage in SKIPPABLE_STAGES &&
                 job?.status == JobStatus.FAILED,
         )
@@ -179,8 +202,32 @@ class AnalysisViewModel @Inject constructor(    private val projectRepository: P
         }
     }
 
+    /**
+     * Stops the WorkManager work *and* marks the job row CANCELLED. Without
+     * the row update, cancelling a stuck analysis (whose worker no longer
+     * exists) would change nothing: the row kept reporting RUNNING forever,
+     * the screen kept showing a spinner and the project could not be cleaned
+     * up. After cancelling, the project sits in DRAFT and can be deleted or
+     * restarted from the projects list.
+     */
     fun cancel() {
-        viewModelScope.launch { scheduler.cancel(activeProjectId.value) }
+        val projectId = activeProjectId.value
+        viewModelScope.launch {
+            scheduler.cancel(projectId)
+            val job = jobRepository.getLatestJob(projectId)
+            if (job != null && (job.status == JobStatus.RUNNING || job.status == JobStatus.QUEUED)) {
+                jobRepository.updateProgress(
+                    jobId = job.id,
+                    stage = job.stage,
+                    status = JobStatus.CANCELLED,
+                    progress = PipelineStageWorker.baseWeight(job.stage),
+                    attempt = job.attempt,
+                    finishedStages = job.finishedStages,
+                )
+            }
+            projectRepository.recordError(projectId, null)
+            projectRepository.updateStatus(projectId, ProjectStatus.DRAFT)
+        }
     }
 
     private companion object {
@@ -225,13 +272,13 @@ fun AnalysisScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = StudioColors.TextSecondary,
                         )
                     }
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = "Analyzing",
+                        text = stringResource(R.string.analysis_title),
                         style = MaterialTheme.typography.headlineSmall,
                         color = StudioColors.TextPrimary,
                         fontWeight = FontWeight.SemiBold,
@@ -273,16 +320,16 @@ fun AnalysisScreen(
                             }
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(
-                                    text = if (state.isFinished) {
-                                        "Analysis complete"
-                                    } else {
-                                        "Analyzing your footage\u2026"
-                                    },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = StudioColors.TextPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
+                            Text(
+                                text = if (state.isFinished) {
+                                    stringResource(R.string.analysis_complete)
+                                } else {
+                                    stringResource(R.string.analysis_progress_title)
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = StudioColors.TextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                                 Text(
                                     text = state.project?.name ?: "Preparing project",
                                     style = MaterialTheme.typography.bodySmall,
@@ -308,10 +355,38 @@ fun AnalysisScreen(
                         )
 
                         Text(
-                            text = state.currentStage.displayName,
+                            text = state.currentStage.localizedLabel(),
                             style = MaterialTheme.typography.bodySmall,
                             color = StudioColors.TextSecondary,
                         )
+                    }
+                }
+            }
+
+            if (state.failedAssets.isNotEmpty() && !state.isFinished) {
+                item {
+                    StudioCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = stringResource(R.string.analysis_unread_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = StudioColors.Warning,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = stringResource(R.string.analysis_unread_body),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StudioColors.TextSecondary,
+                            )
+                            state.failedAssets.forEach { asset ->
+                                Text(
+                                    text = "${asset.displayName} · ${asset.probeError ?: "?"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = StudioColors.TextSecondary,
+                                    maxLines = 2,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -342,7 +417,7 @@ fun AnalysisScreen(
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Text(
-                                    text = "Something went wrong",
+                                    text = stringResource(R.string.something_went_wrong),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = StudioColors.Warning,
                                     fontWeight = FontWeight.SemiBold,
@@ -354,7 +429,7 @@ fun AnalysisScreen(
                                 color = StudioColors.TextSecondary,
                             )
                             Text(
-                                text = "Your original videos are untouched.",
+                                text = stringResource(R.string.originals_untouched),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = StudioColors.TextTertiary,
                             )
@@ -367,12 +442,12 @@ fun AnalysisScreen(
                                         contentColor = StudioColors.OnPrimary,
                                     ),
                                 ) {
-                                    Text("Retry")
+                                    Text(stringResource(R.string.retry))
                                 }
                                 AnimatedVisibility(visible = state.canContinueWithoutAi) {
                                     TextButton(onClick = viewModel::continueWithoutAi) {
                                         Text(
-                                            text = "Continue without AI",
+                                            text = stringResource(R.string.continue_without_ai),
                                             color = StudioColors.TextSecondary,
                                         )
                                     }
@@ -386,7 +461,7 @@ fun AnalysisScreen(
             if (state.isRunning) {
                 item {
                     TextButton(onClick = viewModel::cancel) {
-                        Text("Cancel analysis", color = StudioColors.TextTertiary)
+                        Text(stringResource(R.string.cancel_analysis), color = StudioColors.TextTertiary)
                     }
                 }
             }
@@ -443,7 +518,7 @@ private fun StageRow(
         }
         Spacer(Modifier.width(12.dp))
         Text(
-            text = stage.displayName,
+            text = stage.localizedLabel(),
             style = MaterialTheme.typography.bodyMedium,
             color = when {
                 isDone -> StudioColors.TextSecondary
@@ -454,7 +529,23 @@ private fun StageRow(
             modifier = Modifier.weight(1f),
         )
         if (isDone) {
-            StudioBadge(text = "Done", color = StudioColors.Success)
+            StudioBadge(text = stringResource(R.string.done), color = StudioColors.Success)
         }
     }
+}
+
+/** Stage names come from resources so the pipeline labels follow the app language. */
+@Composable
+private fun PipelineStage.localizedLabel(): String = when (this) {
+    PipelineStage.IMPORT -> stringResource(R.string.stage_import)
+    PipelineStage.PROBE_VIDEO, PipelineStage.EXTRACT_METADATA -> stringResource(R.string.stage_probe)
+    PipelineStage.GENERATE_THUMBNAILS -> stringResource(R.string.stage_thumbnails)
+    PipelineStage.SCENE_DETECTION -> stringResource(R.string.stage_scenes)
+    PipelineStage.AUDIO_ANALYSIS -> stringResource(R.string.stage_audio)
+    PipelineStage.TRANSCRIPTION -> stringResource(R.string.stage_transcription)
+    PipelineStage.SEMANTIC_ANALYSIS -> stringResource(R.string.stage_semantic)
+    PipelineStage.HIGHLIGHT_DETECTION -> stringResource(R.string.stage_highlights)
+    PipelineStage.SHORT_GENERATION -> stringResource(R.string.stage_shorts)
+    PipelineStage.RENDER -> stringResource(R.string.stage_render)
+    else -> stringResource(R.string.stage_done)
 }

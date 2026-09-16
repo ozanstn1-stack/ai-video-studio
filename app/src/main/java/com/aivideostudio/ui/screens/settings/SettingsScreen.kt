@@ -1,5 +1,9 @@
 package com.aivideostudio.ui.screens.settings
 
+import android.app.LocaleManager
+import android.content.Context
+import android.os.Build
+import android.os.LocaleList
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +31,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +48,7 @@ import com.aivideostudio.BuildConfig
 import com.aivideostudio.domain.repository.SettingsRepository
 import com.aivideostudio.domain.repository.UserPreferences
 import com.aivideostudio.ui.components.SectionHeader
+import com.aivideostudio.ui.components.OptionChip
 import com.aivideostudio.ui.components.StudioCard
 import com.aivideostudio.ui.theme.StudioColors
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -66,6 +74,13 @@ fun SettingsScreen(
 ) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
     val ai = preferences.ai
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val currentLanguage = remember { mutableStateOf(readLanguage(context)) }
+
+    fun setLanguage(tag: String?) {
+        currentLanguage.value = tag
+        applyLanguage(context, tag)
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -81,6 +96,28 @@ fun SettingsScreen(
                 color = StudioColors.TextPrimary,
                 fontWeight = FontWeight.Bold,
             )
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader(title = "Language", subtitle = "App language")
+                    StudioCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LanguageOption("System", currentLanguage.value == null) { setLanguage(null) }
+                                LanguageOption("English", currentLanguage.value == "en") { setLanguage("en") }
+                                LanguageOption("Türkçe", currentLanguage.value == "tr") { setLanguage("tr") }
+                            }
+                            Text(
+                                text = "Türkçe şu an analiz ekranı, bildirimler, proje listesi ve alt menüye uygulanır.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = StudioColors.TextTertiary,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         item {
@@ -261,4 +298,34 @@ class SettingsViewModel @Inject constructor(
     fun setDebugMode(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setDebugMode(enabled) }
     }
+}
+
+/**
+ * Per-app language. On Android 13+ the platform LocaleManager owns the choice
+ * and the system persists it; on older versions the row is hidden because
+ * there is no reliable per-app locale API.
+ */
+private fun readLanguage(context: Context): String? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+    val manager = context.getSystemService(LocaleManager::class.java) ?: return null
+    return manager.applicationLocales[0]?.language
+}
+
+private fun applyLanguage(context: Context, tag: String?) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    val manager = context.getSystemService(LocaleManager::class.java) ?: return
+    manager.applicationLocales = if (tag == null) {
+        LocaleList.getEmptyLocaleList()
+    } else {
+        LocaleList.forLanguageTags(tag)
+    }
+}
+
+@Composable
+private fun LanguageOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    OptionChip(label = label, selected = selected, onClick = onClick)
 }

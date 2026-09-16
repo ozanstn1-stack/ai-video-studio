@@ -1,8 +1,13 @@
 package com.aivideostudio.work
 
+import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.aivideostudio.core.common.Constants
@@ -31,6 +36,11 @@ import kotlin.coroutines.coroutineContext
  * entirely — resumability comes from the persisted `finished` stages, so a
  * process death mid-run simply re-runs this worker and picks up the first
  * unfinished stage.
+ *
+ * The worker promotes itself to a foreground service (dataSync type) with a
+ * low-importance notification, so Android keeps scheduling the analysis while
+ * the screen is locked or the app is backgrounded instead of deferring it to
+ * a Doze maintenance window.
  */
 @HiltWorker
 class PipelineStageWorker @AssistedInject constructor(
@@ -41,6 +51,9 @@ class PipelineStageWorker @AssistedInject constructor(
     private val projectRepository: ProjectRepository,
 ) : CoroutineWorker(context, parameters) {
 
+    /** The notification is refreshed only when the whole-percent value changes. */
+    private var lastNotificationPercent: Int = -1
+
     override suspend fun doWork(): Result {
         val projectId = inputData.getLong(KEY_PROJECT_ID, -1L)
         if (projectId <= 0L) return Result.failure()
@@ -49,6 +62,8 @@ class PipelineStageWorker @AssistedInject constructor(
         val job = jobRepository.getLatestJob(projectId)
             ?: return Result.failure(workDataOf(KEY_ERROR to "no job for project"))
         val finished = job.finishedStages.toMutableList()
+
+        promoteToForeground()
 
         while (stage != PipelineStage.DONE) {
             // Already-completed stages are skipped, never repeated.
@@ -173,6 +188,51 @@ class PipelineStageWorker @AssistedInject constructor(
             usedCloud = job.usedCloud || usedCloud,
         )
         setProgress(workDataOf(KEY_PROGRESS to overall, KEY_STAGE to stage.name))
+        updateNotification((overall * 100).toInt(), stage.displayName)
+    }
+
+    /**
+     * Turns the work into a foreground service so the analysis is not deferred
+     * when the user locks the screen or leaves the app. If the system refuses
+     * (e.g. a background start after a process death), the run continues
+     * without the foreground upgrade and stays resumable as before.
+     */
+    private suspend fun promoteToForeground() {
+        runCatching {
+            setForeground(
+                ForegroundInfo(
+                    NOTIFICATION_ID,
+                    analysisNotification("Starting…", 0),
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                    } else {
+                        0
+                    },
+                ),
+            )
+        }
+    }
+
+    /** Live progress card: which stage is running and how far the whole analysis is. */
+    private fun analysisNotification(stageLabel: String, percent: Int) = NotificationCompat
+        .Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_PROCESSING)
+        .setSmallIcon(android.R.drawable.stat_notify_sync)
+        .setContentTitle("Analyzing your footage")
+        .setContentText("$stageLabel · $percent%")
+        .setProgress(100, percent, percent == 0)
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        .build()
+
+    private fun updateNotification(percent: Int, stageLabel: String) {
+        val percentInt = percent.coerceIn(0, 100)
+        if (percentInt == lastNotificationPercent) return
+        lastNotificationPercent = percentInt
+        runCatching {
+            applicationContext.getSystemService(NotificationManager::class.java)
+                ?.notify(NOTIFICATION_ID, analysisNotification(stageLabel, percentInt))
+        }
     }
 
     private fun nextStage(stage: PipelineStage): PipelineStage? {
@@ -188,6 +248,7 @@ class PipelineStageWorker @AssistedInject constructor(
         const val KEY_ERROR = "error"
         const val MAX_ATTEMPTS = 2
         const val MAX_TECHNICAL_LENGTH = 2_000
+        const val NOTIFICATION_ID = 4202
         val TAG = Constants.NOTIFICATION_CHANNEL_PROCESSING
 
         /**

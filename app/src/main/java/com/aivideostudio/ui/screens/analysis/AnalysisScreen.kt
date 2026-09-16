@@ -116,11 +116,32 @@ class AnalysisViewModel @Inject constructor(    private val projectRepository: P
             // A project whose chain was interrupted (app killed, device restarted)
             // resumes from the first stage that has not completed.
             val job = jobRepository.getLatestJob(projectId) ?: return@launch
-            if (job.status == JobStatus.PAUSED) {
-                scheduler.resumeAnalysis(projectId, job.stage)
+            when (job.status) {
+                JobStatus.PAUSED -> scheduler.resumeAnalysis(projectId, job.stage)
+                // RUNNING/QUEUED rows whose worker chain no longer exists are
+                // dead weight: without re-enqueuing, the progress bar would sit
+                // frozen forever with nothing behind it.
+                JobStatus.RUNNING, JobStatus.QUEUED ->
+                    if (!scheduler.hasActiveWork(projectId)) {
+                        scheduler.resumeAnalysis(projectId, resumeStage(job))
+                    }
+
+                else -> Unit
             }
             pipeline.reconcileInterruptedExports()
         }
+    }
+
+    /**
+     * The first stage after the last finished one; falls back to the recorded
+     * stage when nothing has completed yet. Stages are idempotent, so
+     * re-enqueuing a stage that actually did run is always safe.
+     */
+    private fun resumeStage(job: AiJob): PipelineStage {
+        val finished = job.finishedStages
+        if (finished.isEmpty()) return job.stage
+        val index = PipelineScheduler.STAGE_ORDER.indexOf(finished.last())
+        return PipelineScheduler.STAGE_ORDER.getOrNull(index + 1) ?: job.stage
     }
 
     fun retry() {

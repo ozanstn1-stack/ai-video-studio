@@ -74,7 +74,7 @@ class PipelineStageWorker @AssistedInject constructor(
                 jobId = job.id,
                 stage = stage,
                 status = JobStatus.PAUSED,
-                progress = PipelineStage.completedWeight(stage),
+                progress = baseWeight(stage),
                 attempt = runAttemptCount,
                 finishedStages = job.finishedStages,
             )
@@ -84,7 +84,7 @@ class PipelineStageWorker @AssistedInject constructor(
                 jobId = job.id,
                 stage = stage,
                 status = JobStatus.FAILED,
-                progress = PipelineStage.completedWeight(stage),
+                progress = baseWeight(stage),
                 attempt = runAttemptCount + 1,
                 finishedStages = job.finishedStages,
                 errorMessage = "Something went wrong while processing this video",
@@ -104,9 +104,7 @@ class PipelineStageWorker @AssistedInject constructor(
                 jobId = job.id,
                 stage = stage,
                 status = if (runAttemptCount < MAX_ATTEMPTS) JobStatus.QUEUED else JobStatus.FAILED,
-                progress = PipelineStage.completedWeight(
-                    job.finishedStages.lastOrNull() ?: PipelineStage.IMPORT,
-                ),
+                progress = baseWeight(stage),
                 attempt = runAttemptCount + 1,
                 finishedStages = job.finishedStages,
                 errorMessage = message,
@@ -126,9 +124,11 @@ class PipelineStageWorker @AssistedInject constructor(
         usedCloud: Boolean = false,
     ) {
         val job = jobRepository.getLatestJob(projectId) ?: return
-        val base = PipelineStage.completedWeight(
-            finished.lastOrNull() ?: PipelineStage.IMPORT,
-        )
+        // The bar runs from the weight accumulated *before* this stage up to the
+        // weight that includes it. Deriving the base from `finished` would pin
+        // the very first stage at the completed weight of IMPORT (2%), because
+        // its base and ceiling would be identical.
+        val base = baseWeight(stage)
         val ceiling = PipelineStage.completedWeight(stage)
         val overall = base + (ceiling - base) * fraction.coerceIn(0f, 1f)
         jobRepository.updateProgress(
@@ -200,5 +200,16 @@ class PipelineStageWorker @AssistedInject constructor(
         const val MAX_ATTEMPTS = 2
         const val MAX_TECHNICAL_LENGTH = 2_000
         val TAG = Constants.NOTIFICATION_CHANNEL_PROCESSING
+
+        /**
+         * Cumulative weight of every stage *before* [stage]: the progress value
+         * the bar rests on while [stage] is running. 0% for the first stage.
+         */
+        fun baseWeight(stage: PipelineStage): Float {
+            val order = PipelineScheduler.STAGE_ORDER
+            val index = order.indexOf(stage)
+            if (index <= 0) return 0f
+            return PipelineStage.completedWeight(order[index - 1])
+        }
     }
 }

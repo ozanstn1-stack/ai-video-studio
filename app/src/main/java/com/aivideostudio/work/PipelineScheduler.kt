@@ -11,6 +11,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.aivideostudio.core.common.Constants
 import com.aivideostudio.domain.model.PipelineStage
+import kotlinx.coroutines.flow.first
 
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,6 +45,20 @@ class PipelineScheduler @Inject constructor(
 
     fun observeIsRunning(projectId: Long) =
         workManager().getWorkInfosByTagFlow(Constants.pipelineTag(projectId))
+
+    /**
+     * True while WorkManager still holds a live request (running, queued or
+     * blocked in the chain) for this project. A job row can be RUNNING in the
+     * database while the chain behind it is gone — the app died mid-stage or
+     * the worker was stopped without returning a result — and the caller uses
+     * this to decide whether the pipeline has to be re-enqueued.
+     */
+    suspend fun hasActiveWork(projectId: Long): Boolean =
+        observeIsRunning(projectId).first().any { info ->
+            info.state == WorkInfo.State.ENQUEUED ||
+                info.state == WorkInfo.State.RUNNING ||
+                info.state == WorkInfo.State.BLOCKED
+        }
 
     fun startExport(exportId: Long, projectId: Long, clipId: Long) {
         val request = OneTimeWorkRequestBuilder<ExportWorker>()

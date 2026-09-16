@@ -37,7 +37,11 @@ import com.aivideostudio.media.model.AudioProfile
 import com.aivideostudio.media.model.FaceSample
 import com.aivideostudio.media.probe.MediaProbe
 import com.aivideostudio.media.thumbnail.ThumbnailGenerator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
@@ -154,7 +158,10 @@ class ProjectPipeline @Inject constructor(
         }
         var failed = 0
         assets.forEachIndexed { index, asset ->
-            val result = mediaProbe.probe(asset.uri)
+            // Report before probing too, so the bar already reflects which clip
+            // is being read instead of resting on the previous stage's value.
+            onProgress(index.toFloat() / assets.size)
+            val result = probeAsset(asset.uri)
             if (result.isValid) {
                 mediaRepository.updateMetadata(
                     asset.copy(
@@ -201,6 +208,27 @@ class ProjectPipeline @Inject constructor(
                         ?.let { path -> projectRepository.updateCover(projectId, path) }
                 }
             Outcome(PipelineStage.PROBE_VIDEO, succeeded = true)
+        }
+    }
+
+    /**
+     * Probing drives `MediaExtractor`/`MediaMetadataRetriever`, native calls
+     * that Kotlin cannot interrupt. For a cloud-backed picker item the media
+     * stack can block them indefinitely while it downloads, which would freeze
+     * the whole pipeline at its starting progress. The call therefore runs
+     * detached and races against a timeout: the pipeline always moves on, and
+     * the abandoned native call unwinds through `probe()`'s own `finally`.
+     */
+    private suspend fun probeAsset(uri: String): com.aivideostudio.media.probe.MediaProbe.Result {
+        val detached = CoroutineScope(SupervisorJob() + dispatchers.io)
+        val deferred = detached.async { mediaProbe.probe(uri) }
+        return try {
+            withTimeoutOrNull(PROBE_TIMEOUT_MS) { deferred.await() }
+                ?: com.aivideostudio.media.probe.MediaProbe.Result(
+                    error = "Reading this video took too long",
+                )
+        } finally {
+            deferred.cancel()
         }
     }
 
@@ -600,6 +628,7 @@ class ProjectPipeline @Inject constructor(
 
     private companion object {
         const val DEFAULT_FPS = 30f
+        const val PROBE_TIMEOUT_MS = 45_000L
         const val MAX_FACE_SAMPLES = 160
         const val FACE_SAMPLE_INTERVAL_MS = 3_000L
         const val CLOSE_UP_COVERAGE = 0.11f

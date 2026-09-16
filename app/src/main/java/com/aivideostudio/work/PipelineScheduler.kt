@@ -29,18 +29,30 @@ class PipelineScheduler @Inject constructor(
     private val context: Context,
 ) {
 
-    fun startAnalysis(projectId: Long) {
+    suspend fun startAnalysis(projectId: Long) {
         cancel(projectId)
         enqueueStage(context, projectId, STAGE_ORDER.first())
     }
 
-    fun resumeAnalysis(projectId: Long, from: PipelineStage) {
+    suspend fun resumeAnalysis(projectId: Long, from: PipelineStage) {
         cancel(projectId)
         enqueueStage(context, projectId, from)
     }
 
-    fun cancel(projectId: Long) {
+    /**
+     * Cancels every live request of the project and *waits* until no active
+     * request remains. The sweep is asynchronous internally; an immediate
+     * re-enqueue without awaiting it can race the sweep and have the fresh
+     * request cancelled along with the old chain, which stranded the job at a
+     * frozen progress value with nothing running behind it.
+     */
+    suspend fun cancel(projectId: Long) {
         workManager().cancelAllWorkByTag(Constants.pipelineTag(projectId))
+        observeIsRunning(projectId).first { infos -> infos.none { info ->
+            info.state == WorkInfo.State.ENQUEUED ||
+                info.state == WorkInfo.State.RUNNING ||
+                info.state == WorkInfo.State.BLOCKED
+        } }
     }
 
     fun observeIsRunning(projectId: Long) =

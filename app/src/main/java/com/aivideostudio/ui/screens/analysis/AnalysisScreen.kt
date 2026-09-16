@@ -180,7 +180,7 @@ class AnalysisViewModel @Inject constructor(    private val projectRepository: P
     }
 
     fun cancel() {
-        scheduler.cancel(activeProjectId.value)
+        viewModelScope.launch { scheduler.cancel(activeProjectId.value) }
     }
 
     private companion object {

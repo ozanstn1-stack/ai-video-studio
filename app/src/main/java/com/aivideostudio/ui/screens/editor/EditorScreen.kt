@@ -426,7 +426,10 @@ fun EditorScreen(
                         .fillMaxWidth(),
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        SectionHeader(title = "Text & audio")
+                        SectionHeader(
+                            title = "Text & audio",
+                            subtitle = "Add music from your device, text and hook",
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TimelineAction(
                                 icon = Icons.Outlined.TextFields,

@@ -13,7 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +77,10 @@ fun VideoThumbnail(
  * Media3 player surface. The player instance is owned by the caller's
  * ViewModel-free composition and released when it leaves the tree, which keeps
  * playback from leaking across navigation.
+ *
+ * [endPositionMs] bounds playback: a preview of a *moment* stops (or loops back
+ * to its start) when the moment ends instead of playing the rest of the source
+ * file, which made the raw footage look like the generated output.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -82,6 +88,7 @@ fun StudioVideoPlayer(
     mediaUri: String?,
     modifier: Modifier = Modifier,
     startPositionMs: Long = 0L,
+    endPositionMs: Long = 0L,
     playWhenReady: Boolean = false,
     loop: Boolean = false,
     showControls: Boolean = true,
@@ -97,10 +104,27 @@ fun StudioVideoPlayer(
                 } else {
                     androidx.media3.common.Player.REPEAT_MODE_OFF
                 }
-                seekTo(startPositionMs)
+                seekTo(startPositionMs.coerceAtLeast(0L))
                 prepare()
                 this.playWhenReady = playWhenReady
             }
+        }
+    }
+
+    // Pause (or loop back) as soon as playback runs past the moment's end.
+    LaunchedEffect(player, endPositionMs, startPositionMs) {
+        val bounded = player ?: return@LaunchedEffect
+        if (endPositionMs <= startPositionMs) return@LaunchedEffect
+        while (true) {
+            if (bounded.currentPosition >= endPositionMs) {
+                if (loop) {
+                    bounded.seekTo(startPositionMs.coerceAtLeast(0L))
+                } else {
+                    bounded.pause()
+                    bounded.seekTo(startPositionMs.coerceAtLeast(0L))
+                }
+            }
+            delay(150)
         }
     }
 

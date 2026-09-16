@@ -224,14 +224,46 @@ fun ReviewScreen(
             }
         }
 
+        if (state.clips.isNotEmpty()) {
+            item {
+                StudioCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "${state.clips.size} Short${if (state.clips.size == 1) "" else "s"} ready",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = StudioColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "These are the edited videos. Open one to add music, " +
+                                "captions, text and export it.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StudioColors.TextTertiary,
+                        )
+                        Button(
+                            onClick = { onOpenClips(projectId) },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = StudioColors.Primary,
+                                contentColor = StudioColors.OnPrimary,
+                            ),
+                        ) {
+                            Text("View Shorts")
+                        }
+                    }
+                }
+            }
+        }
+
         if (state.selected.isNotEmpty()) {
             item {
                 val highlight = state.selected.first()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionHeader(
-                        title = "Preview",
+                        title = "Preview of a selected moment",
                         subtitle = "${TimeUtils.formatDuration(highlight.startMs)} \u2013 " +
-                            TimeUtils.formatDuration(highlight.endMs),
+                            "${TimeUtils.formatDuration(highlight.endMs)} \u00B7 " +
+                            "plays only this moment, not the whole video",
                     )
                     Box(
                         modifier = Modifier
@@ -242,6 +274,8 @@ fun ReviewScreen(
                         StudioVideoPlayer(
                             mediaUri = state.previewUri,
                             startPositionMs = highlight.startMs,
+                            endPositionMs = highlight.endMs,
+                            loop = true,
                             playWhenReady = false,
                         )
                     }
@@ -277,35 +311,6 @@ fun ReviewScreen(
                     },
                     onSelectedChange = { selected -> viewModel.setSelected(highlight.id, selected) },
                 )
-            }
-        }
-
-        if (state.clips.isNotEmpty()) {
-            item {
-                StudioCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "${state.clips.size} Short${if (state.clips.size == 1) "" else "s"} ready",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = StudioColors.TextPrimary,
-                        )
-                        Text(
-                            text = "Open them to edit, caption and export.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = StudioColors.TextTertiary,
-                        )
-                        Button(
-                            onClick = { onOpenClips(projectId) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = StudioColors.Primary,
-                                contentColor = StudioColors.OnPrimary,
-                            ),
-                        ) {
-                            Text("View Shorts")
-                        }
-                    }
-                }
             }
         }
 
